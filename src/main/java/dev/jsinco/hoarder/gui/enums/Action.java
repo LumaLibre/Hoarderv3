@@ -45,7 +45,7 @@ public enum Action {
                             player.openInventory(guiCreator.getInventory());
                         }
                     });
-                }).orTimeout(5, TimeUnit.SECONDS).exceptionally(e -> {
+                }).exceptionally(e -> {
                     e.printStackTrace();
                     return null;
                 });

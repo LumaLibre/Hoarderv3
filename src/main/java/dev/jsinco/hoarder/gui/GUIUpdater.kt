@@ -2,6 +2,7 @@ package dev.jsinco.hoarder.gui
 
 import dev.jsinco.hoarder.Hoarder
 import dev.jsinco.hoarder.manager.Settings
+import dev.jsinco.hoarder.utilities.Executors
 import org.bukkit.Bukkit
 import org.bukkit.inventory.Inventory
 import java.util.concurrent.TimeUnit
@@ -11,9 +12,6 @@ import java.util.concurrent.TimeUnit
  */
 class GUIUpdater (guiCreator: GUICreator) {
 
-    companion object{
-        private val plugin: Hoarder = Hoarder.getInstance()
-    }
 
     val file = guiCreator.file
     val gui: Inventory = guiCreator.gui
@@ -29,30 +27,32 @@ class GUIUpdater (guiCreator: GUICreator) {
         val guis = mutableListOf<Inventory>()
 
         guiCreator.paginatedGUI.thenAccept { result ->
-            if (result != null) {
-                guis.addAll(result.pages)
-            } else {
-                guis.add(gui)
-            }
-            for ((index, inv) in guis.withIndex()) {
-                for (guiItem in itemsList) {
-                    if (Settings.hideIfPageNotAvailable() && result != null && (index == 0 || index == guis.size - 1)) {
-                        if (guiItem.getAction() == "[BACK_PAGE]" && index == 0) continue
-                        if (guiItem.getAction() == "[NEXT_PAGE]" && index == guis.size - 1) continue
-                    }
-
-                    if (guiItem.multiSlotted) {
-                        for (slot in guiItem.getSlots()) {
-                            guiItem.getItemStack().thenAccept { inv.setItem(slot, it) }
+            Executors.global {
+                if (result != null) {
+                    guis.addAll(result.pages)
+                } else {
+                    guis.add(gui)
+                }
+                for ((index, inv) in guis.withIndex()) {
+                    for (guiItem in itemsList) {
+                        if (Settings.hideIfPageNotAvailable() && result != null && (index == 0 || index == guis.size - 1)) {
+                            if (guiItem.getAction() == "[BACK_PAGE]" && index == 0) continue
+                            if (guiItem.getAction() == "[NEXT_PAGE]" && index == guis.size - 1) continue
                         }
-                    } else {
-                        guiItem.getItemStack().thenAccept { inv.setItem(guiItem.getSlot(), it) }
+
+                        if (guiItem.multiSlotted) {
+                            for (slot in guiItem.getSlots()) {
+                                guiItem.getItemStack().thenAccept { inv.setItem(slot, it) }
+                            }
+                        } else {
+                            guiItem.getItemStack().thenAccept { inv.setItem(guiItem.getSlot(), it) }
+                        }
                     }
                 }
             }
-        }.orTimeout(5, TimeUnit.SECONDS).exceptionally orTimeout@{
+        }.exceptionally {
             it.printStackTrace()
-            return@orTimeout null
+            null
         }
     }
 
