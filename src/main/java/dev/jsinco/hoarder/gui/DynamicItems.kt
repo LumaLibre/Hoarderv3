@@ -8,6 +8,7 @@ import dev.jsinco.hoarder.manager.FileManager
 import dev.jsinco.hoarder.manager.Settings
 import dev.jsinco.hoarder.objects.HoarderPlayer
 import dev.jsinco.hoarder.objects.Time
+import dev.jsinco.hoarder.utilities.Executors
 import org.bukkit.Material
 import org.bukkit.NamespacedKey
 import org.bukkit.enchantments.Enchantment
@@ -46,46 +47,53 @@ class DynamicItems(private val guiCreator: GUICreator) {
 
                 gui.setItem(dItemsFile.getInt("items.active_item.slot"), activeItem)
                 startClockRunnable() // FIXME
+                guiCreator.paginatedGUI.complete(null)
             }
 
             GUIType.TREASURE -> {
-                val treasureItems = Settings.getDataManger().getAllTreasureItems() ?: return
+                Settings.getDataManger().getAllTreasureItems().thenAccept { treasureItems ->
+                    if (treasureItems == null) return@thenAccept
 
-                val items: MutableList<ItemStack> = mutableListOf()
+                    val items: MutableList<ItemStack> = mutableListOf()
 
-                for (treasureItem in treasureItems) {
-                    val item = treasureItem.itemStack.clone() // Clone it
-                    val meta = item.itemMeta!!
+                    for (treasureItem in treasureItems) {
+                        val item = treasureItem.itemStack.clone() // Clone it
+                        val meta = item.itemMeta!!
 
-                    val lore = meta.lore ?: emptyList<String?>().toMutableList()
-                    for (string in dItemsFile.getStringList("items.treasure.lore")) {
-                        lore.add(Util.fullColor(string.replace("%weight%", treasureItem.weight.toString())))
+                        val lore = meta.lore ?: emptyList<String?>().toMutableList()
+                        for (string in dItemsFile.getStringList("items.treasure.lore")) {
+                            lore.add(Util.fullColor(string.replace("%weight%", treasureItem.weight.toString())))
+                        }
+                        meta.lore = lore
+                        item.itemMeta = meta
+                        items.add(item)
                     }
-                    meta.lore = lore
-                    item.itemMeta = meta
-                    items.add(item)
-                }
 
-                guiCreator.paginatedGUI = PaginatedGUI(guiCreator.title, gui, items)
+                    guiCreator.paginatedGUI.complete(PaginatedGUI(guiCreator.title, gui, items))
+                }
             }
 
             GUIType.STATS -> {
-                val hoarderPlayerUUIDS: List<String> = Util.getEventPlayersByTop().keys.toList()
+                Util.getEventPlayersByTop().thenAccept { hoarderPlayers ->
+                    val hoarderPlayerUUIDS: List<String> = hoarderPlayers.keys.toList()
 
-                val playerHeads: MutableList<ItemStack> = mutableListOf()
+                    val playerHeads: MutableList<ItemStack> = mutableListOf()
 
-                for (uuid in hoarderPlayerUUIDS) {
-                    val hoarderPlayer = HoarderPlayer(uuid)
+                    for (uuid in hoarderPlayerUUIDS) {
+                        val hoarderPlayer = HoarderPlayer(uuid)
 
-                    val statItem = createItem(Material.valueOf(dItemsFile.getString("items.stats.material")!!.uppercase()),
-                        setStatsGUIStrings(dItemsFile.getString("items.stats.name")!!, hoarderPlayer, hoarderPlayerUUIDS),
+                        val statItem = createItem(Material.valueOf(dItemsFile.getString("items.stats.material")!!.uppercase()),
+                            setStatsGUIStrings(dItemsFile.getString("items.stats.name")!!, hoarderPlayer, hoarderPlayerUUIDS),
                             dItemsFile.getStringList("items.stats.lore").map { setStatsGUIStrings(it, hoarderPlayer, hoarderPlayerUUIDS) },
                             dItemsFile.getBoolean("items.stats.enchanted"),
                             dItemsFile.getString("items.stats.action") ?: "NONE")
 
-                    playerHeads.add(GUIItem.setPlayerHead(statItem, uuid))
+                        playerHeads.add(GUIItem.setPlayerHead(statItem, uuid))
+
+                        guiCreator.paginatedGUI.complete(PaginatedGUI(guiCreator.title, gui, playerHeads))
+                    }
                 }
-                guiCreator.paginatedGUI = PaginatedGUI(guiCreator.title, gui, playerHeads)
+
             }
             GUIType.TREASURE_CLAIM -> {
                 val materialMatchString = dItemsFile.getString("items.treasure.string-matched-materials") ?: "CONCRETE_POWDER"
@@ -95,16 +103,19 @@ class DynamicItems(private val guiCreator: GUICreator) {
                     if (material.name.contains(materialMatchString)) materials.add(material)
                 }
 
-                val amt = Settings.getDataManger().getClaimableTreasures(player.uniqueId.toString())
-                val items: MutableList<ItemStack> = mutableListOf()
+                Settings.getDataManger().getClaimableTreasures(player.uniqueId.toString()).thenAccept { amt ->
+                    val items: MutableList<ItemStack> = mutableListOf()
 
-                for (i in 0 until amt) {
-                    val item = createItem(materials.random(), dItemsFile.getString("items.treasure_claim.name") ?: "", dItemsFile.getStringList("items.treasure_claim.lore"), dItemsFile.getBoolean("items.treasure_claim.enchanted"), dItemsFile.getString("items.treasure_claim.action"))
-                    items.add(item)
+                    for (i in 0 until amt) {
+                        val item = createItem(materials.random(), dItemsFile.getString("items.treasure_claim.name") ?: "", dItemsFile.getStringList("items.treasure_claim.lore"), dItemsFile.getBoolean("items.treasure_claim.enchanted"), dItemsFile.getString("items.treasure_claim.action"))
+                        items.add(item)
+                    }
+                    guiCreator.paginatedGUI.complete(PaginatedGUI(guiCreator.title, gui, items))
                 }
-                guiCreator.paginatedGUI = PaginatedGUI(guiCreator.title, gui, items)
             }
-            GUIType.OTHER -> {}
+            GUIType.OTHER -> {
+                guiCreator.paginatedGUI.complete(null)
+            }
         }
     }
 
@@ -137,20 +148,17 @@ class DynamicItems(private val guiCreator: GUICreator) {
         val meta = item.itemMeta!!
 
         val expireTime = System.currentTimeMillis() + 300000
-        guiCreator.guiRunnable = object : BukkitRunnable() {
-            override fun run() {
-                if (System.currentTimeMillis() >= expireTime) {
-                    cancel()
-                }
-
-                meta.setDisplayName(setMainGUIStrings(setClockStrings(dItemsFile.getString("items.clock.name") ?: "")))
-
-                meta.lore = dItemsFile.getStringList("items.clock.lore").map { setMainGUIStrings(setClockStrings(it)) }
-                item.itemMeta = meta
-                gui.setItem(dItemsFile.getInt("items.clock.slot"), item)
-
+        guiCreator.guiRunnable = Executors.globalTimer(1, 20) { self ->
+            if (System.currentTimeMillis() >= expireTime) {
+                self.cancel()
             }
-        }.runTaskTimer(plugin, 0, 20).taskId
+
+            meta.setDisplayName(setMainGUIStrings(setClockStrings(dItemsFile.getString("items.clock.name") ?: "")))
+
+            meta.lore = dItemsFile.getStringList("items.clock.lore").map { setMainGUIStrings(setClockStrings(it)) }
+            item.itemMeta = meta
+            gui.setItem(dItemsFile.getInt("items.clock.slot"), item)
+        }
     }
 
     private fun setClockStrings(string: String): String {

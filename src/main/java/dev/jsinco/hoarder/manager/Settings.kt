@@ -3,7 +3,6 @@ package dev.jsinco.hoarder.manager
 import dev.jsinco.hoarder.Hoarder
 import dev.jsinco.hoarder.economy.ProviderType
 import dev.jsinco.hoarder.storage.DataManager
-import dev.jsinco.hoarder.storage.FlatFile
 import dev.jsinco.hoarder.storage.StorageType
 import dev.jsinco.hoarder.storage.sql.Database
 import dev.jsinco.hoarder.storage.sql.MySQL
@@ -143,7 +142,10 @@ object Settings {
         dataManager = when (getStorageType()) {
             StorageType.MYSQL -> MySQL(plugin)
             StorageType.SQLITE -> SQLite(plugin)
-            StorageType.FLATFILE -> FlatFile(plugin)
+            StorageType.FLATFILE -> {
+                plugin.logger.warning("Flatfile storage is no longer supported. Using SQLite instead.")
+                SQLite(plugin)
+            }
         }
         plugin.logger.info("Loading ${getStorageType()} as storage type...")
     }

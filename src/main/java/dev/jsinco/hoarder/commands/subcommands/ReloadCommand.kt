@@ -16,7 +16,7 @@ class ReloadCommand : SubCommand {
         val startTime = System.currentTimeMillis()
 
         plugin.reloadConfig()
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, Runnable {
+        Bukkit.getAsyncScheduler().runNow(plugin, {
             Settings.reloadDataManager()
         })
         FileManager.generateDefaultFiles()

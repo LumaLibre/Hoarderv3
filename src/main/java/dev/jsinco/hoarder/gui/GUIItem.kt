@@ -14,6 +14,7 @@ import org.bukkit.inventory.ItemStack
 import org.bukkit.inventory.meta.SkullMeta
 import org.bukkit.persistence.PersistentDataType
 import java.util.*
+import java.util.concurrent.CompletableFuture
 
 class GUIItem (val file: YamlConfiguration, private val key: String) {
 
@@ -36,7 +37,7 @@ class GUIItem (val file: YamlConfiguration, private val key: String) {
         return file.getString("items.$key.action") ?: "NONE"
     }
 
-    fun getItemStack(): ItemStack {
+    fun getItemStack(): CompletableFuture<ItemStack> {
         val item = ItemStack(Material.valueOf(file.getString("items.$key.material")!!.uppercase()))
         val meta = item.itemMeta!!
 
@@ -56,25 +57,27 @@ class GUIItem (val file: YamlConfiguration, private val key: String) {
         if (data != null && data is String && data.contains("%top_")) {
             return setTopPlayerItemPlaceholders(item, data)
         }
-        return item
+        return CompletableFuture.completedFuture(item)
     }
 
     // FIXME
-    private fun setTopPlayerItemPlaceholders(itemStack: ItemStack, data: String): ItemStack {
-        var item = itemStack
-        val meta = item.itemMeta!!
-        val eventPlayers = Util.getEventPlayersByTop()
-        val dmFile = FileManager("guis/dynamicitems.yml").getFileYaml()
+    private fun setTopPlayerItemPlaceholders(itemStack: ItemStack, data: String): CompletableFuture<ItemStack> {
+        val itemFuture: CompletableFuture<ItemStack> = CompletableFuture()
+        val meta = itemStack.itemMeta!!
+        Util.getEventPlayersByTop().thenAccept { eventPlayers ->
+            val dmFile = FileManager("guis/dynamicitems.yml").getFileYaml()
 
-        meta.setDisplayName(Util.fullColor(replaceTopPlayerPlaceholders(name, eventPlayers) ?: dmFile.getString("items.empty_position.name")!!))
-        var wasNull = false
-        meta.lore = lore.map { Util.fullColor(replaceTopPlayerPlaceholders(it, eventPlayers) ?:  run { wasNull = true; "" }) }
-        if (wasNull) meta.lore = Util.fullColor(dmFile.getStringList("items.empty_position.lore"))
+            meta.setDisplayName(Util.fullColor(replaceTopPlayerPlaceholders(name, eventPlayers) ?: dmFile.getString("items.empty_position.name")!!))
+            var wasNull = false
+            meta.lore = lore.map { Util.fullColor(replaceTopPlayerPlaceholders(it, eventPlayers) ?:  run { wasNull = true; "" }) }
+            if (wasNull) meta.lore = Util.fullColor(dmFile.getStringList("items.empty_position.lore"))
 
-        val uuid = replaceTopPlayerPlaceholders(data, eventPlayers) ?: run { item.type = Material.valueOf(dmFile.getString("items.empty_position.material")!!); "" }
-        item.itemMeta = meta
-        item = setPlayerHead(itemStack, uuid)
-        return item
+            val uuid = replaceTopPlayerPlaceholders(data, eventPlayers) ?: run { itemStack.type = Material.valueOf(dmFile.getString("items.empty_position.material")!!); "" }
+            itemStack.itemMeta = meta
+            itemFuture.complete(setPlayerHead(itemStack, uuid))
+        }
+
+        return itemFuture
     }
 
     companion object {

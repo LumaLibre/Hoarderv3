@@ -10,6 +10,7 @@ import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
 import java.io.File
 import java.util.*
+import java.util.concurrent.CompletableFuture
 
 object Util {
 
@@ -128,9 +129,15 @@ object Util {
             .replace("%top_${num}_uuid%", uuid)
     }
 
-    fun getEventPlayersByTop(): Map<String, Int> {
-        val eventPlayers = Settings.getDataManger().getEventPlayers()
-        return eventPlayers.toList().sortedByDescending { (_, value) -> value }.toMap()
+    fun getEventPlayersByTop(): CompletableFuture<Map<String, Int>> {
+        return Settings.getDataManger()
+            .getEventPlayers()
+            .thenApply { eventPlayers ->
+                eventPlayers
+                    .toList()
+                    .sortedByDescending { (_, value) -> value }
+                    .toMap()
+            }
     }
 
     fun formatEconAmt(amount: Double): String {

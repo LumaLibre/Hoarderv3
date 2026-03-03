@@ -6,7 +6,7 @@ import dev.jsinco.hoarder.manager.FileManager;
 import dev.jsinco.hoarder.manager.Settings;
 import dev.jsinco.hoarder.objects.LangMsg;
 import dev.jsinco.hoarder.papi.PAPIManager;
-import dev.jsinco.hoarder.storage.StorageType;
+import dev.jsinco.hoarder.utilities.Executors;
 import dev.jsinco.hoarder.utilities.UpdateChecker;
 import dev.jsinco.hoarder.utilities.configupdater.ConfigUpdater;
 import org.bukkit.Bukkit;
@@ -18,7 +18,6 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
-import java.util.Collections;
 import java.util.List;
 import java.util.logging.Level;
 
@@ -87,20 +86,18 @@ public final class Hoarder extends JavaPlugin {
                 }
             });
 
-            Bukkit.getScheduler().scheduleSyncDelayedTask(this, () -> {
+            Executors.globalDelayed(200, t -> {
                 if (!version.equals(latestVersion)) {
                     plugin.getLogger().info(String.format(ChatColor.stripColor(new LangMsg("notifications.update-available").getMsgSendSound(null)), latestVersion));
                 }
-            }, 200L);
+            });
         }
     }
 
     @Override
     public void onDisable() {
         // Close connection to database if using MySQL or SQLite
-        if (Settings.getStorageType() == StorageType.MYSQL || Settings.getStorageType() == StorageType.SQLITE) {
-            Settings.getDataManger().closeConnection();
-        }
+        Settings.getDataManger().closeConnection();
         // Unregister PlaceholderAPI
         if (usePapi) papiManager.unregister();
     }

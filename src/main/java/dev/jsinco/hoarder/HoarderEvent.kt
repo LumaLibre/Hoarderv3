@@ -6,9 +6,11 @@ import dev.jsinco.hoarder.manager.SellingManager
 import dev.jsinco.hoarder.manager.Settings
 import dev.jsinco.hoarder.objects.LangMsg
 import dev.jsinco.hoarder.utilities.Util
+import io.papermc.paper.threadedregions.scheduler.ScheduledTask
 import org.bukkit.Bukkit
 import org.bukkit.Material
 import java.util.*
+import java.util.concurrent.CompletableFuture
 import kotlin.random.Random
 
 /**
@@ -22,7 +24,7 @@ object HoarderEvent {
     lateinit var activeMaterial: Material
     var activeSellPrice: Double = 0.0
     var endTime: Long = 0
-    var runnable: Int = -1
+    var runnable: ScheduledTask? = null
 
     private var dataManager = Settings.getDataManger()
 
@@ -30,29 +32,46 @@ object HoarderEvent {
      * Reload the event
      */
     fun reloadHoarderEvent() {
-        activeMaterial = dataManager.getEventMaterial()
-        activeSellPrice = if (Settings.usingEconomy()) dataManager.getEventSellPrice() else 0.0
-        endTime = dataManager.getEventEndTime()
 
-        if (runnable != -1) Bukkit.getScheduler().cancelTask(runnable)
-        runnable = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, {
-            if (System.currentTimeMillis() < endTime) return@scheduleSyncRepeatingTask
+        val materialFuture = dataManager.getEventMaterial()
+        val sellPriceFuture = if (Settings.usingEconomy()) {
+            dataManager.getEventSellPrice()
+        } else {
+            CompletableFuture.completedFuture(0.0)
+        }
+        val endTimeFuture = dataManager.getEventEndTime()
 
-            dataManager = Settings.getDataManger() // Ensure dataManager is up-to-date
+        CompletableFuture.allOf(materialFuture, sellPriceFuture, endTimeFuture)
+            .thenRun {
 
-            val hoarderEndEvent = HoarderEndEvent() // API
-            val hoarderStartEvent = HoarderStartEvent()
-            Bukkit.getPluginManager().callEvent(hoarderEndEvent)
-            Bukkit.getPluginManager().callEvent(hoarderStartEvent)
+                activeMaterial = materialFuture.join()
+                activeSellPrice = sellPriceFuture.join()
+                endTime = endTimeFuture.join()
 
-            if (!hoarderEndEvent.isCancelled){
-                endHoarderEvent()
+                runnable?.cancel()
+
+                runnable = Bukkit.getGlobalRegionScheduler().runAtFixedRate(plugin, {
+
+                    if (System.currentTimeMillis() < endTime) return@runAtFixedRate
+
+                    dataManager = Settings.getDataManger()
+
+                    val hoarderEndEvent = HoarderEndEvent()
+                    val hoarderStartEvent = HoarderStartEvent()
+
+                    Bukkit.getPluginManager().callEvent(hoarderEndEvent)
+                    Bukkit.getPluginManager().callEvent(hoarderStartEvent)
+
+                    if (!hoarderEndEvent.isCancelled) {
+                        endHoarderEvent()
+                    }
+
+                    if (!hoarderStartEvent.isCancelled) {
+                        startHoarderEvent(Settings.getEventTimerLength())
+                    }
+
+                }, 1, Settings.getEndTimeInterval())
             }
-            if (!hoarderStartEvent.isCancelled) {
-                startHoarderEvent(Settings.getEventTimerLength())
-            }
-            //reloadHoarderEvent()
-        },0, Settings.getEndTimeInterval())
     }
 
 
@@ -92,32 +111,32 @@ object HoarderEvent {
         if (SellingManager.locked) SellingManager.locked = false
 
         val winnerPositions = Settings.getWinners()
-        val eventPlayers = Util.getEventPlayersByTop().keys.toList()
+        Util.getEventPlayersByTop().thenAccept { result ->
+            val eventPlayers = result.keys.toList()
 
-        for (position in winnerPositions.keys) {
-            if (eventPlayers.size < position) break
-            val uuid = eventPlayers[position - 1]
+            for (position in winnerPositions.keys) {
+                if (eventPlayers.size < position) break
+                val uuid = eventPlayers[position - 1]
 
-            dataManager.addClaimableTreasures(uuid, winnerPositions[position]!!)
-            if (!Bukkit.getOfflinePlayer(UUID.fromString(uuid)).isOnline) {
-                dataManager.addMsgQueuedPlayer(uuid, position)
+                dataManager.addClaimableTreasures(uuid, winnerPositions[position]!!)
+                if (!Bukkit.getOfflinePlayer(UUID.fromString(uuid)).isOnline) {
+                    dataManager.addMsgQueuedPlayer(uuid, position)
+                }
             }
-        }
 
 
-        val eventPlayersMap = Util.getEventPlayersByTop()
-
-        val msg = LangMsg("notifications.hoarder-event-end").getMsgListSendSound(Bukkit.getOnlinePlayers().toList()).map{
-            Util.replaceTopPlayerPlaceholders(it, eventPlayersMap) ?: (LangMsg.prefix + LangMsg("actions.empty-position").message)
-        }
-
-        for (player in Bukkit.getOnlinePlayers()) {
-            if (!player.hasPermission("hoarder.notify")) continue
-            for (message in msg) {
-                player.sendMessage(message)
+            val msg = LangMsg("notifications.hoarder-event-end").getMsgListSendSound(Bukkit.getOnlinePlayers().toList()).map{
+                Util.replaceTopPlayerPlaceholders(it, result) ?: (LangMsg.prefix + LangMsg("actions.empty-position").message)
             }
+
+            for (player in Bukkit.getOnlinePlayers()) {
+                if (!player.hasPermission("hoarder.notify")) continue
+                for (message in msg) {
+                    player.sendMessage(message)
+                }
+            }
+            dataManager.resetAllPoints()
         }
-        dataManager.resetAllPoints()
     }
 
 

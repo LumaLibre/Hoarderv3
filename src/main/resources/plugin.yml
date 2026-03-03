@@ -2,7 +2,7 @@ name: Hoarder
 version: '${version}'
 main: dev.jsinco.hoarder.Hoarder
 api-version: '1.20'
-load: STARTUP
+folia-supported: true
 author: 'Jsinco'
 description: 'Compete with other players in Hoarder events and earn rewards!'
 softdepend:

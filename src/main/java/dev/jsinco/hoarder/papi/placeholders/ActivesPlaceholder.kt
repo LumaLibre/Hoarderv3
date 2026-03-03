@@ -13,15 +13,18 @@ class ActivesPlaceholder : Placeholder {
 
         return when(args[1].lowercase()) {
             "material" -> {
-                return Settings.getDataManger().getEventMaterial().name
+                return "Unsupported"
+                //return Settings.getDataManger().getEventMaterial().name
             }
 
             "materialformatted" -> {
-                return Util.formatMaterialName(Settings.getDataManger().getEventMaterial())
+                return "Unsupported"
+                //return Util.formatMaterialName(Settings.getDataManger().getEventMaterial())
             }
 
             "sellprice" -> {
-                return Util.formatEconAmt(Settings.getDataManger().getEventSellPrice())
+                return "Unsupported"
+                //return Util.formatEconAmt(Settings.getDataManger().getEventSellPrice())
             }
 
             "time" -> {

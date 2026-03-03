@@ -37,10 +37,13 @@ class LangMsg(val path: String) {
         }
 
         if (message?.contains("%top_") == true) {
-            message = Util.replaceTopPlayerPlaceholders(message, Util.getEventPlayersByTop())
+            Util.getEventPlayersByTop().thenAccept { result ->
+                message = Util.replaceTopPlayerPlaceholders(message, result ?: return@thenAccept)
+                player.sendMessage(Util.fullColor(prefix + message))
+            }
+        } else {
+            player.sendMessage(Util.fullColor(prefix + message))
         }
-
-        player.sendMessage(Util.fullColor(prefix + message))
     }
 
     fun getMsgSendSound(player: Player?): String {
@@ -48,9 +51,9 @@ class LangMsg(val path: String) {
             player.playSound(player.location, Sound.valueOf(sound), volume, pitch)
         }
 
-        if (message?.contains("%top_") == true) {
-            message = Util.replaceTopPlayerPlaceholders(message, Util.getEventPlayersByTop())
-        }
+//        if (message?.contains("%top_") == true) {
+//            message = Util.replaceTopPlayerPlaceholders(message, Util.getEventPlayersByTop().join()) // TODO: I just cant be bothered rn
+//        }
 
         return Util.fullColor(prefix + message)
     }

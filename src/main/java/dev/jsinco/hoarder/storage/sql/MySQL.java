@@ -22,7 +22,7 @@ public class MySQL extends Database {
         this.address = "jdbc:mysql://" + plugin.getConfig().getString("storage.address");
         this.username = plugin.getConfig().getString("storage.username");
         this.password = plugin.getConfig().getString("storage.password");
-        initializeDatabase(false);
+        initializeDatabase(false).join();
     }
 
     @Override

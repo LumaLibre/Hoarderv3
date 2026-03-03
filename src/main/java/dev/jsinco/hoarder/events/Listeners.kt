@@ -5,6 +5,7 @@ import dev.jsinco.hoarder.gui.GUICreator
 import dev.jsinco.hoarder.gui.enums.Action
 import dev.jsinco.hoarder.manager.Settings
 import dev.jsinco.hoarder.objects.LangMsg
+import dev.jsinco.hoarder.utilities.syncDelayed
 import org.bukkit.Bukkit
 import org.bukkit.NamespacedKey
 import org.bukkit.entity.Player
@@ -40,15 +41,15 @@ class Listeners(private val plugin: Hoarder) : Listener {
 
         // TODO: precheck doesnt work
         var preCheck = false
-        Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, {
-            if (player.openInventory.topInventory.holder is GUICreator) preCheck = true
-        }, 1)
+        player.syncDelayed(1) {
+             if (player.openInventory.topInventory.holder is GUICreator) preCheck = true
+        }
 
         if (preCheck) return
         val guiCreator = event.inventory.holder as GUICreator
 
-        if (guiCreator.guiRunnable != -1) {
-            Bukkit.getScheduler().cancelTask(guiCreator.guiRunnable)
+        if (guiCreator.guiRunnable != null) {
+            guiCreator.guiRunnable!!.cancel()
         }
     }
 
@@ -58,28 +59,30 @@ class Listeners(private val plugin: Hoarder) : Listener {
         if (!player.hasPermission("hoarder.notify")) return
 
         val dataManager = Settings.getDataManger()
-        if (dataManager.isMsgQueuedPlayer(player.uniqueId.toString())) {
-            Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, {
-                if (!player.isOnline) return@scheduleSyncDelayedTask
-                player.sendMessage(LangMsg("notifications.hoarder-event-won").getMsgSendSound(player).format(dataManager.getMsgQueuedPlayerPosition(player.uniqueId.toString()).toString()))
-                dataManager.removeMsgQueuedPlayer(player.uniqueId.toString())
-            }, 25)
-            return
+        dataManager.isMsgQueuedPlayer(player.uniqueId.toString()).thenAccept {bool ->
+            if (bool) {
+                player.syncDelayed(25) {
+                    if (!player.isOnline) return@syncDelayed
+                    player.sendMessage(LangMsg("notifications.hoarder-event-won").getMsgSendSound(player).format(dataManager.getMsgQueuedPlayerPosition(player.uniqueId.toString()).toString()))
+                    dataManager.removeMsgQueuedPlayer(player.uniqueId.toString())
+                }
+            }
         }
 
-        val claimableTreasures = dataManager.getClaimableTreasures(player.uniqueId.toString())
-        if (claimableTreasures > 0) {
-            Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, {
-                if (!player.isOnline) return@scheduleSyncDelayedTask
-                player.sendMessage(LangMsg("notifications.claimable-treasures").getMsgSendSound(player).format(claimableTreasures.toString()))
-            }, 25)
+        dataManager.getClaimableTreasures(player.uniqueId.toString()).thenAccept { claimableTreasures ->
+            if (claimableTreasures != null && claimableTreasures > 0) {
+                player.syncDelayed(25) {
+                    if (!player.isOnline) return@syncDelayed
+                    player.sendMessage(LangMsg("notifications.claimable-treasures").getMsgSendSound(player).format(claimableTreasures.toString()))
+                }
+            }
         }
 
         if (Hoarder.getLatestVersion() != plugin.description.version && Settings.notifyOnAvailableUpdate()) {
-            Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, {
-                if (!player.isOnline || !player.hasPermission("hoarder.update")) return@scheduleSyncDelayedTask
+            player.syncDelayed(25) {
+                if (!player.isOnline || !player.hasPermission("hoarder.update")) return@syncDelayed
                 player.sendMessage(LangMsg("notifications.update-available").getMsgSendSound(player).format(Hoarder.getLatestVersion()))
-            }, 25)
+            }
         }
     }
 }

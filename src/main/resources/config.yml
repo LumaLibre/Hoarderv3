@@ -5,8 +5,8 @@ config-version: 1.0.4
 lang: en_US
 
 # Specify your preferred storage type
-# Types of storage available: MySQL, SQLite, FlatFile
-# When using SQLite or FlatFile, "database" will be the name of the file that the data is stored in
+# Types of storage available: MySQL, SQLite
+# When using SQLite, "database" will be the name of the file that the data is stored in
 storage:
   type: SQLite
   database: data

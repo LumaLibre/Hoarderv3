@@ -7,10 +7,24 @@ import dev.jsinco.hoarder.objects.LangMsg
 import dev.jsinco.hoarder.utilities.Util
 import org.bukkit.command.CommandSender
 import org.bukkit.entity.Player
+import java.util.concurrent.CompletableFuture
 
 class TreasureCommand : SubCommand {
 
-    private val allIdentifiers = Settings.getDataManger().getAllTreasureItems()?.map { it.identifier }?.toMutableList()
+    private val allIdentifiersFuture: CompletableFuture<MutableList<String>> =
+        Settings.getDataManger()
+            .getAllTreasureItems()
+            .thenApply { items ->
+                items.map { it.identifier }.toMutableList()
+            }
+
+    private var allIdentifiers: MutableList<String> = mutableListOf()
+
+    init {
+        allIdentifiersFuture.thenAccept { identifiers ->
+            allIdentifiers = identifiers
+        }
+    }
 
     override fun execute(plugin: Hoarder, sender: CommandSender, args: Array<out String>) {
         val dataManager = Settings.getDataManger()

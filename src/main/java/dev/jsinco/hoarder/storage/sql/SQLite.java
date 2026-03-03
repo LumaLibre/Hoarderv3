@@ -29,7 +29,7 @@ public class SQLite extends Database {
         }
 
         path = "jdbc:sqlite:" + plugin.getDataFolder().getAbsolutePath() + "/" + plugin.getConfig().getString("storage.database") + ".db";
-        initializeDatabase(true);
+        initializeDatabase(true).join();
     }
 
     @Override

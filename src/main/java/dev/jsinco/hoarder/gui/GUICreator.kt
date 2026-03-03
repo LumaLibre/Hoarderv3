@@ -4,9 +4,12 @@ import dev.jsinco.hoarder.utilities.Util
 import dev.jsinco.hoarder.gui.enums.GUIType
 import dev.jsinco.hoarder.manager.FileManager
 import dev.jsinco.hoarder.manager.Settings
+import io.papermc.paper.threadedregions.scheduler.ScheduledTask
 import org.bukkit.Bukkit
 import org.bukkit.inventory.Inventory
 import org.bukkit.inventory.InventoryHolder
+import java.util.concurrent.CompletableFuture
+import javax.annotation.Nullable
 
 class GUICreator (path: String) : InventoryHolder {
 
@@ -19,8 +22,8 @@ class GUICreator (path: String) : InventoryHolder {
 
     val guiType = GUIType.valueOf(file.getString("gui-type")?.uppercase() ?: "OTHER")
 
-    var paginatedGUI: PaginatedGUI? = null
-    var guiRunnable: Int = -1
+    var paginatedGUI: CompletableFuture<PaginatedGUI?> = CompletableFuture()
+    var guiRunnable: ScheduledTask? = null
 
     init {
         val itemKeyPaths = file.getConfigurationSection("items")!!.getKeys(false)
@@ -35,10 +38,10 @@ class GUICreator (path: String) : InventoryHolder {
 
             if (guiItem.multiSlotted) {
                 for (slot in guiItem.getSlots()) {
-                    gui.setItem(slot, guiItem.getItemStack())
+                    guiItem.getItemStack().thenAccept { gui.setItem(slot, it) }
                 }
             } else {
-                gui.setItem(guiItem.getSlot(), guiItem.getItemStack())
+                guiItem.getItemStack().thenAccept { gui.setItem(guiItem.getSlot(), it) }
             }
         }
     }

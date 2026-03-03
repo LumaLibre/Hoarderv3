@@ -2,17 +2,16 @@ plugins {
     id 'java'
     id 'org.jetbrains.kotlin.jvm' version '1.9.20'
     id 'com.github.johnrengelman.shadow' version '8.1.1'
-    // "org.kordamp.gradle.yguard" version "0.5.0"
 }
 
-group = 'dev.jsinco'
-version = '1.0.5'
+group = 'dev.jsinco.hoarder'
+version = '1.1.0'
 
 repositories {
     mavenCentral()
     maven {
-        name = "spigotmc-repo"
-        url = "https://hub.spigotmc.org/nexus/content/repositories/snapshots/"
+        name = "papermc-repo"
+        url = "https://repo.papermc.io/repository/maven-public/"
     }
     maven {
         name = "sonatype"
@@ -36,18 +35,12 @@ repositories {
     }
 }
 
-/*
-configurations {
-    yguard
-}
- */
 
 dependencies {
-    compileOnly "org.spigotmc:spigot-api:1.20-R0.1-SNAPSHOT"
+    compileOnly "io.papermc.paper:paper-api:1.20.1-R0.1-SNAPSHOT"
     compileOnly "com.github.MilkBowl:VaultAPI:1.7"
     compileOnly "org.black_ixx:playerpoints:3.2.5"
     compileOnly "me.clip:placeholderapi:2.11.6"
-    //implementation 'com.yworks:yguard:4.1.0'
 
     implementation "org.xerial:sqlite-jdbc:3.42.0.0"
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
@@ -85,6 +78,7 @@ shadowJar {
         include(dependency("org.jetbrains.kotlin:kotlin-stdlib"))
         include(dependency("com.iridium:IridiumColorAPI"))
     }
+    relocate("or.xerial", "dev.jsinco.hoarder.lib.sqlite")
     archiveClassifier.set('')
 }
 
@@ -95,66 +89,3 @@ jar {
 build {
     dependsOn shadowJar
 }
-
-/*
-task yguard {
-    group 'yGuard'
-    description 'Obfuscates and shrinks the java archive.'
-
-    doLast {
-        ant.taskdef(
-                name: 'yguard',
-                classname: 'com.yworks.yguard.YGuardTask',
-                classpath: sourceSets.main.compileClasspath.asPath
-        )
-
-        ant.yguard {
-            // see the yGuard task documentation for information about the yGuard element
-            inoutpairs {
-                // see the InOutPair documentation for information about the InOutPair element
-                fileset(dir: 'build/libs') {
-                    include(name: 'Hoarder-1.0.0-all.jar')
-                }
-            }
-        }
-    }
-}
-
-
-task yguard {
-    dependsOn jar
-    group 'yGuard'
-    description 'Obfuscates the java archive.'
-
-    doLast {
-        print(configurations.yguard.asPath)
-
-        def archivePath = "C:\\Bukkit-Plugins\\OOPRevisions\\Hoarder\\build\\libs\\Hoarder-1.0.4-all.jar"
-        def unobfJar = archivePath.replace(".jar", "_unobf.jar")
-
-        ant.move(file: archivePath, tofile: unobfJar, verbose: true)
-
-
-        ant.taskdef(
-                name: 'yguard',
-                classname: 'com.yworks.yguard.YGuardTask',
-                classpath: "C:\\Users\\jonah\\Downloads\\yguard-bundle-4.1.0\\yguard-bundle-4.1.0\\lib\\yguard-4.1.0.jar"
-        )
-        ant.yguard {
-            inoutpair(in: unobfJar, out: archivePath)
-
-            // Prevent yGuard from removing "Deprecated" attributes from .class files.
-            attribute(name: "Deprecated")
-
-            rename(logfile: "${buildDir}/${rootProject.name}_renamelog.xml") {
-                keep {
-                    // We want to keep our main class and package unobfuscaed 'dev.jsinco.hoarder.Hoarder'
-                    'class'(name: 'dev.jsinco.hoarder.Hoarder', methods: 'public', fields: 'public')
-                    'class'(methods: 'protected', fields: 'protected')
-                    // 'class'(classes: 'protected', methods: 'protected', fields: 'protected')
-                }
-            }
-        }
-    }
-}
- */

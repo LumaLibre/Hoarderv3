@@ -15,11 +15,11 @@ class DataMigrater (
     // TODO: hoarder cache
     private var dataManager: DataManager = Settings.getDataManger()
 
-    private val hoarderPlayers: List<HoarderPlayer> = dataManager.getAllHoarderPlayers()
-    private val treasureItems: List<TreasureItem>? = dataManager.getAllTreasureItems()
-    private val eventEndTime: Long = dataManager.getEventEndTime()
-    private val activeMaterial: Material = dataManager.getEventMaterial()
-    private val activeSellPrice: Double = dataManager.getEventSellPrice()
+    private val hoarderPlayersFuture = dataManager.getAllHoarderPlayers()
+    private val treasureItemsFuture = dataManager.getAllTreasureItems()
+    private val eventEndTimeFuture = dataManager.getEventEndTime()
+    private val activeMaterialFuture = dataManager.getEventMaterial()
+    private val activeSellPriceFuture = dataManager.getEventSellPrice()
 
     init {
         if (newStorageType == StorageType.MYSQL) {
@@ -41,21 +41,35 @@ class DataMigrater (
         dataManager = Settings.getDataManger()
 
         // Migrate event data
-        dataManager.setEventEndTime(eventEndTime)
-        dataManager.setEventMaterial(activeMaterial)
-        if (Settings.usingEconomy()) dataManager.setEventSellPrice(activeSellPrice)
+        eventEndTimeFuture.thenAccept { eventEndTime ->
+            dataManager.setEventEndTime(eventEndTime)
+        }
+        activeMaterialFuture.thenAccept { activeMaterial ->
+            dataManager.setEventMaterial(activeMaterial)
+        }
+        if (Settings.usingEconomy()) {
+            activeSellPriceFuture.thenAccept { activeSellPrice ->
+                dataManager.setEventSellPrice(activeSellPrice)
+            }
+        }
 
         // Migrate player data
         // TODO: /shrug
-        for (hoarderPlayer in hoarderPlayers) {
-            dataManager.addPoints(hoarderPlayer.uuid, hoarderPlayer.getPoints())
-            dataManager.addClaimableTreasures(hoarderPlayer.uuid, hoarderPlayer.getClaimableTreasures())
+        hoarderPlayersFuture.thenAccept { hoarderPlayers ->
+            for (hoarderPlayer in hoarderPlayers) {
+                dataManager.addPoints(hoarderPlayer.uuid, hoarderPlayer.getPoints())
+                dataManager.getClaimableTreasures(hoarderPlayer.uuid).thenAccept { claimableTreasures ->
+                    dataManager.addClaimableTreasures(hoarderPlayer.uuid, claimableTreasures)
+                }
+            }
         }
 
-        if (treasureItems != null) {
-            // Migrate treasure data
-            for (treasureItem in treasureItems) {
-                dataManager.addTreasureItem(treasureItem)
+        treasureItemsFuture.thenAccept { treasureItems ->
+            if (treasureItems != null) {
+                // Migrate treasure data
+                for (treasureItem in treasureItems) {
+                    dataManager.addTreasureItem(treasureItem)
+                }
             }
         }
     }

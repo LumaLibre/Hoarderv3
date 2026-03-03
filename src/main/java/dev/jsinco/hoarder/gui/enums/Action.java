@@ -6,6 +6,8 @@ import dev.jsinco.hoarder.gui.GUIUpdater;
 import dev.jsinco.hoarder.gui.PaginatedGUI;
 import dev.jsinco.hoarder.manager.SellingManager;
 import dev.jsinco.hoarder.objects.HoarderPlayer;
+import dev.jsinco.hoarder.utilities.Executors;
+import dev.jsinco.hoarder.utilities.SynchronizedExecutors;
 import dev.jsinco.hoarder.utilities.Util;
 import kotlin.Pair;
 import org.bukkit.Bukkit;
@@ -14,6 +16,8 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.Inventory;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.concurrent.TimeUnit;
 
 public enum Action {
 
@@ -32,21 +36,33 @@ public enum Action {
                 GUICreator guiCreator = new GUICreator(string);
                 new DynamicItems(guiCreator).setGuiSpecifics(player);
 
-                if (guiCreator.getPaginatedGUI() != null) {
-                    new GUIUpdater(guiCreator); // Pagination arrows
-                    player.openInventory(guiCreator.getPaginatedGUI().getPage(0));
-                } else {
-                    player.openInventory(guiCreator.getInventory());
-                }
+                guiCreator.getPaginatedGUI().thenAccept(result -> {
+                    SynchronizedExecutors.sync(player, () -> {
+                        if (result != null) {
+                            new GUIUpdater(guiCreator); // Pagination arrows
+                            player.openInventory(result.getPage(0));
+                        } else {
+                            player.openInventory(guiCreator.getInventory());
+                        }
+                    });
+                }).orTimeout(5, TimeUnit.SECONDS).exceptionally(e -> {
+                    e.printStackTrace();
+                    return null;
+                });
+
             }
 
             case COMMAND -> {
-                CommandSender sender = Bukkit.getConsoleSender();
-                if (string.contains("-p")) {
-                    string = string.replace("-p", "").trim();
-                    sender = player;
-                }
-                Bukkit.dispatchCommand(sender, string.replace("%player%", player.getName()));
+                final String finalString = string;
+                Executors.global(() -> {
+                    CommandSender sender = Bukkit.getConsoleSender();
+                    String stringCopy = finalString;
+                    if (stringCopy.contains("-p")) {
+                        stringCopy = stringCopy.replace("-p", "").trim();
+                        sender = player;
+                    }
+                    Bukkit.dispatchCommand(sender, stringCopy.replace("%player%", player.getName()));
+                });
             }
 
             case CLOSE -> player.closeInventory();
@@ -56,21 +72,25 @@ public enum Action {
             case BACK_PAGE -> {
                 Inventory inv = player.getOpenInventory().getTopInventory();
                 GUICreator guiCreator = (GUICreator) inv.getHolder();
-                PaginatedGUI paginatedGUI = guiCreator.getPaginatedGUI();
+                assert guiCreator != null;
+                guiCreator.getPaginatedGUI().thenAccept(paginatedGUI -> {
+                    if (paginatedGUI == null || paginatedGUI.indexOf(inv) == 0) return;
 
-                if (paginatedGUI == null || paginatedGUI.indexOf(inv) == 0) return false;
-
-                player.openInventory(paginatedGUI.getPage(paginatedGUI.indexOf(inv) - 1));
+                    SynchronizedExecutors.sync(player, () -> player.openInventory(paginatedGUI.getPage(paginatedGUI.indexOf(inv) - 1)));
+                });
+                return true;
             }
 
             case NEXT_PAGE -> {
                 Inventory inv = player.getOpenInventory().getTopInventory();
                 GUICreator guiCreator = (GUICreator) inv.getHolder();
-                PaginatedGUI paginatedGUI = guiCreator.getPaginatedGUI();
+                assert guiCreator != null;
+                guiCreator.getPaginatedGUI().thenAccept(paginatedGUI -> {
+                    if (paginatedGUI == null || paginatedGUI.indexOf(inv) == paginatedGUI.getSize() -1) return;
 
-                if (paginatedGUI == null || paginatedGUI.indexOf(inv) == paginatedGUI.getSize() -1) return false;
-
-                player.openInventory(paginatedGUI.getPage(paginatedGUI.indexOf(inv) + 1));
+                    SynchronizedExecutors.sync(player, () -> player.openInventory(paginatedGUI.getPage(paginatedGUI.indexOf(inv) + 1)));
+                });
+                return true;
             }
 
             case SELL -> {

@@ -14,7 +14,9 @@ class TopPlaceholder : Placeholder {
     override fun onReceivedRequest(plugin: Hoarder, player: OfflinePlayer?, args: List<String>): String? {
         if (args.size < 2) return null
 
-        val topPlayers: Map<String, Int> = Util.getEventPlayersByTop()
+        if (true) return "Unsupported"
+
+        val topPlayers: Map<String, Int> = emptyMap() //Util.getEventPlayersByTop()
         val num = args[1].toIntOrNull() ?: return null
 
         val uuids = topPlayers.keys.toList()

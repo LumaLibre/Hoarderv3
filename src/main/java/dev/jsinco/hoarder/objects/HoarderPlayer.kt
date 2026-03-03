@@ -3,6 +3,7 @@ package dev.jsinco.hoarder.objects
 import dev.jsinco.hoarder.utilities.Util
 import dev.jsinco.hoarder.storage.DataManager
 import dev.jsinco.hoarder.manager.Settings
+import dev.jsinco.hoarder.utilities.sync
 import org.bukkit.Bukkit
 import org.bukkit.OfflinePlayer
 import org.bukkit.entity.Player
@@ -20,8 +21,13 @@ class HoarderPlayer (val uuid: String) {
         val dataManager: DataManager = Settings.getDataManger()
     }
 
-    private var points: Int = dataManager.getPoints(uuid)
-    private var claimableTreasures: Int = dataManager.getClaimableTreasures(uuid)
+    private var points: Int = 0
+    private var claimableTreasures: Int = 0
+
+    init {
+        dataManager.getPoints(uuid).thenAccept { points += it }
+        dataManager.getClaimableTreasures(uuid).thenAccept { claimableTreasures += it }
+    }
 
     fun addPoints(amount: Int) {
         dataManager.addPoints(uuid, amount)
@@ -48,10 +54,6 @@ class HoarderPlayer (val uuid: String) {
         claimableTreasures -= amount
     }
 
-    fun getClaimableTreasures(): Int {
-        return claimableTreasures
-    }
-
     // Etc
 
     fun getPlayer(): Player? {
@@ -69,32 +71,43 @@ class HoarderPlayer (val uuid: String) {
 
     fun claimTreasure(amount: Int) {
         val player = getOfflinePlayer().player ?: return
-        val claimable = getClaimableTreasures()
-        val treasures = dataManager.getAllTreasureItems() ?: return
-        if (treasures.isEmpty()) {
-            LangMsg("actions.treasure-claim-none").sendMessage(player)
-            return
-        }
+        val treasuresFuture = dataManager.getAllTreasureItems()
+        treasuresFuture.thenAccept { treasures ->
+            if (treasures.isEmpty()) {
+                LangMsg("actions.treasure-claim-none").sendMessage(player)
+                return@thenAccept
+            }
 
-        dataManager.removeClaimableTreasures(uuid, amount)
-        for (i in 0 until amount) {
-            if (claimable <= 0) return
+            dataManager.getClaimableTreasures(uuid).thenAccept { claimable ->
+                dataManager.removeClaimableTreasures(uuid, amount).thenAccept { _ ->
+                    for (i in 0 until amount) {
+                        if (claimable <= 0) return@thenAccept
 
-            var item: ItemStack? = null
-            while (item == null) {
-                val treasureItem = treasures.random()
+                        var item: ItemStack? = null
+                        while (item == null) {
+                            val treasureItem = treasures.random()
 
-                if (treasureItem.weight <= Random.nextInt(Settings.treasureBoundInt())) {
-                    item = treasureItem.itemStack.clone()
+                            val bound = Settings.treasureBoundInt()
+
+                            if (treasureItem.weight >= bound || treasureItem.weight <= Random.nextInt(bound + 1)) {
+                                item = treasureItem.itemStack.clone()
+                            }
+                        }
+                        player.sync {
+                            Util.giveItem(player, item)
+                        }
+                    }
+
+                    if (amount == 1) {
+                        LangMsg("actions.treasure-claim").sendMessage(player)
+                    } else {
+                        player.sendMessage(LangMsg("actions.treasure-claim-multiple").getMsgSendSound(player).format(amount.toString()))
+                    }
                 }
             }
-            Util.giveItem(player, item)
-        }
-
-        if (amount == 1) {
-            LangMsg("actions.treasure-claim").sendMessage(player)
-        } else {
-            player.sendMessage(LangMsg("actions.treasure-claim-multiple").getMsgSendSound(player).format(amount.toString()))
+        }.exceptionally {
+            it.printStackTrace()
+            null
         }
     }
 }
