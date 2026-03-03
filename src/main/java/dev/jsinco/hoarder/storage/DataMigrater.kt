@@ -2,9 +2,6 @@ package dev.jsinco.hoarder.storage
 
 import dev.jsinco.hoarder.Hoarder
 import dev.jsinco.hoarder.manager.Settings
-import dev.jsinco.hoarder.objects.HoarderPlayer
-import dev.jsinco.hoarder.objects.TreasureItem
-import org.bukkit.Material
 
 class DataMigrater (
     private val newStorageType: StorageType,
@@ -57,7 +54,9 @@ class DataMigrater (
         // TODO: /shrug
         hoarderPlayersFuture.thenAccept { hoarderPlayers ->
             for (hoarderPlayer in hoarderPlayers) {
-                dataManager.addPoints(hoarderPlayer.uuid, hoarderPlayer.getPoints())
+                hoarderPlayer.queryPoints().thenAccept { points ->
+                    dataManager.addPoints(hoarderPlayer.uuid, points)
+                }
                 dataManager.getClaimableTreasures(hoarderPlayer.uuid).thenAccept { claimableTreasures ->
                     dataManager.addClaimableTreasures(hoarderPlayer.uuid, claimableTreasures)
                 }

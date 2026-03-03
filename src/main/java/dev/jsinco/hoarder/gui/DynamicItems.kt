@@ -16,7 +16,6 @@ import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemFlag
 import org.bukkit.inventory.ItemStack
 import org.bukkit.persistence.PersistentDataType
-import org.bukkit.scheduler.BukkitRunnable
 
 class DynamicItems(private val guiCreator: GUICreator) {
 
@@ -82,15 +81,18 @@ class DynamicItems(private val guiCreator: GUICreator) {
                     for (uuid in hoarderPlayerUUIDS) {
                         val hoarderPlayer = HoarderPlayer(uuid)
 
-                        val statItem = createItem(Material.valueOf(dItemsFile.getString("items.stats.material")!!.uppercase()),
-                            setStatsGUIStrings(dItemsFile.getString("items.stats.name")!!, hoarderPlayer, hoarderPlayerUUIDS),
-                            dItemsFile.getStringList("items.stats.lore").map { setStatsGUIStrings(it, hoarderPlayer, hoarderPlayerUUIDS) },
-                            dItemsFile.getBoolean("items.stats.enchanted"),
-                            dItemsFile.getString("items.stats.action") ?: "NONE")
+                        hoarderPlayer.queryPoints().thenAccept {
 
-                        playerHeads.add(GUIItem.setPlayerHead(statItem, uuid))
+                            val statItem = createItem(Material.valueOf(dItemsFile.getString("items.stats.material")!!.uppercase()),
+                                setStatsGUIStrings(dItemsFile.getString("items.stats.name")!!, hoarderPlayer, hoarderPlayerUUIDS),
+                                dItemsFile.getStringList("items.stats.lore").map { setStatsGUIStrings(it, hoarderPlayer, hoarderPlayerUUIDS) },
+                                dItemsFile.getBoolean("items.stats.enchanted"),
+                                dItemsFile.getString("items.stats.action") ?: "NONE")
 
-                        guiCreator.paginatedGUI.complete(PaginatedGUI(guiCreator.title, gui, playerHeads))
+                            playerHeads.add(GUIItem.setPlayerHead(statItem, uuid))
+
+                            guiCreator.paginatedGUI.complete(PaginatedGUI(guiCreator.title, gui, playerHeads))
+                        }
                     }
                 }
 

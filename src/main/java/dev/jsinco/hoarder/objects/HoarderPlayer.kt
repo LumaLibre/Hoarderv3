@@ -9,6 +9,7 @@ import org.bukkit.OfflinePlayer
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
 import java.util.*
+import java.util.concurrent.CompletableFuture
 import kotlin.random.Random
 
 /**
@@ -22,12 +23,6 @@ class HoarderPlayer (val uuid: String) {
     }
 
     private var points: Int = 0
-    private var claimableTreasures: Int = 0
-
-    init {
-        dataManager.getPoints(uuid).thenAccept { points += it }
-        dataManager.getClaimableTreasures(uuid).thenAccept { claimableTreasures += it }
-    }
 
     fun addPoints(amount: Int) {
         dataManager.addPoints(uuid, amount)
@@ -43,15 +38,20 @@ class HoarderPlayer (val uuid: String) {
         return points
     }
 
+    fun queryPoints(): CompletableFuture<Int> {
+        return dataManager.getPoints(uuid)
+            .whenComplete { points, _ ->
+                this.points = points
+            }
+    }
+
 
     fun addClaimableTreasures(amount: Int) {
         dataManager.addClaimableTreasures(uuid, amount)
-        claimableTreasures += amount
     }
 
     fun removeClaimableTreasures(amount: Int) {
         dataManager.removeClaimableTreasures(uuid, amount)
-        claimableTreasures -= amount
     }
 
     // Etc
