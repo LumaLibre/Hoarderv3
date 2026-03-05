@@ -63,8 +63,10 @@ class Listeners(private val plugin: Hoarder) : Listener {
             if (bool) {
                 player.syncDelayed(25) {
                     if (!player.isOnline) return@syncDelayed
-                    player.sendMessage(LangMsg("notifications.hoarder-event-won").getMsgSendSound(player).format(dataManager.getMsgQueuedPlayerPosition(player.uniqueId.toString()).toString()))
-                    dataManager.removeMsgQueuedPlayer(player.uniqueId.toString())
+                    dataManager.getMsgQueuedPlayerPosition(player.uniqueId.toString()).thenAccept { position ->
+                        player.sendMessage(LangMsg("notifications.hoarder-event-won").getMsgSendSound(player).format(position.toString()))
+                        dataManager.removeMsgQueuedPlayer(player.uniqueId.toString())
+                    }
                 }
             }
         }
