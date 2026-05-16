@@ -1,7 +1,5 @@
 package dev.jsinco.hoarder.utilities
 
-import com.iridium.iridiumcolorapi.IridiumColorAPI
-import dev.jsinco.hoarder.HoarderEvent
 import dev.jsinco.hoarder.manager.Settings
 import org.bukkit.Bukkit
 import org.bukkit.ChatColor
@@ -56,11 +54,11 @@ object Util {
     }
     @JvmStatic
     fun fullColor(string: String): String {
-        return IridiumColorAPI.process(colorcode(string))
+        return colorcode(string)
     }
     @JvmStatic
     fun fullColor(list: List<String>): List<String> {
-        return colorcode(list).map { IridiumColorAPI.process(it) }
+        return colorcode(list)
     }
 
 

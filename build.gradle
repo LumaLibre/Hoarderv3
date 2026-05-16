@@ -22,10 +22,6 @@ repositories {
         url = "https://jitpack.io"
     }
     maven {
-        name = "iridiumdevelopment"
-        url = "https://nexus.iridiumdevelopment.net/repository/maven-releases/"
-    }
-    maven {
         name = "playerpoints"
         url = "https://repo.rosewooddev.io/repository/public/"
     }
@@ -44,7 +40,6 @@ dependencies {
 
     implementation "org.xerial:sqlite-jdbc:3.42.0.0"
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
-    implementation "com.iridium:IridiumColorAPI:1.0.9"
     implementation "org.jetbrains:annotations:24.0.0"
 }
 
@@ -76,7 +71,6 @@ kotlin {
 shadowJar {
     dependencies {
         include(dependency("org.jetbrains.kotlin:kotlin-stdlib"))
-        include(dependency("com.iridium:IridiumColorAPI"))
     }
     relocate("or.xerial", "dev.jsinco.hoarder.lib.sqlite")
     archiveClassifier.set('')
